@@ -20,7 +20,7 @@ func TestGauge(t *testing.T) {
 		expectPanic bool
 	}{
 		{
-			description: "send a gauge with no labels",
+			description: "use a gauge with no labels",
 			fn: func(g kit.Gauge) {
 				g.Add(1)
 			},
@@ -28,43 +28,43 @@ func TestGauge(t *testing.T) {
 				"": 1.0,
 			},
 		}, {
-			description: "send a gauge with labels",
+			description: "use a gauge with labels",
 			fn: func(g kit.Gauge) {
-				g.With("label1", "label2").Add(1)
+				g.With("label1", "value1", "label2", "value2").Add(1)
 			},
 			expected: map[string]float64{
-				"label1.label2": 1.0,
+				"value1.value2": 1.0,
 			},
 		}, {
-			description: "send a gauge with labels using 2 calls",
+			description: "use a gauge with labels using 2 calls",
 			fn: func(g kit.Gauge) {
-				g.With("label1").With("label2").Add(1)
+				g.With("label1", "value1").With("label2", "value2").Add(1)
 			},
 			expected: map[string]float64{
-				"label1.label2": 1.0,
+				"value1.value2": 1.0,
 			},
 		}, {
-			description: "send a gauge with labels using 3 calls",
+			description: "use a gauge with labels using 3 calls",
 			fn: func(g kit.Gauge) {
-				g.With("label1").With("label2").With("label3").Add(1)
-				g.With("label7").With("label2").With("label9").Set(99)
-				g.With("label7").With("label2").With("label9").Add(1)
+				g.With("label1", "value1").With("label2", "value2").With("label3", "value3").Add(1)
+				g.With("label7", "value7").With("label2", "value2").With("label9", "value9").Set(99)
+				g.With("label7", "value7").With("label2", "value2").With("label9", "value9").Add(1)
 			},
 			expected: map[string]float64{
-				"label1.label2.label3": 1.0,
-				"label7.label2.label9": 100.0,
+				"value1.value2.value3": 1.0,
+				"value7.value2.value9": 100.0,
 			},
 		}, {
 			description: "use a different delimiter",
 			fn: func(g kit.Gauge) {
-				g.With("label1").With("label2").With("label3").Add(1)
-				g.With("label7").With("label2").With("label9").Set(99)
-				g.With("label7").With("label2").With("label9").Add(1)
+				g.With("label1", "value1").With("label2", "value2").With("label3", "value3").Add(1)
+				g.With("label7", "value7").With("label2", "value2").With("label9", "value9").Set(99)
+				g.With("label7", "value7").With("label2", "value2").With("label9", "value9").Add(1)
 			},
 			opt: Delimiter("-"),
 			expected: map[string]float64{
-				"label1-label2-label3": 1.0,
-				"label7-label2-label9": 100.0,
+				"value1-value2-value3": 1.0,
+				"value7-value2-value9": 100.0,
 			},
 		}, {
 			description: "output an empty gauge",
@@ -72,18 +72,18 @@ func TestGauge(t *testing.T) {
 		}, {
 			description: "check that custom panic is honored",
 			fn: func(g kit.Gauge) {
-				g.With("label1").Add(-1)
+				g.With("label1", "value1")
 			},
 			opts: []Option{PanicFunc(func(any) {}), ExpectLabels()},
 		}, {
 			description: "check that panic is honored",
 			fn: func(g kit.Gauge) {
-				g.With("label1").Add(-1)
+				g.With("label1", "value1").Add(-1)
 			},
 			opt:         ExpectLabels(),
 			expectPanic: true,
 		}, {
-			description: "send a counter with no labels, expecting no labels",
+			description: "use a gauge with no labels, expecting no labels",
 			fn: func(g kit.Gauge) {
 				g.Add(1)
 			},
@@ -94,23 +94,23 @@ func TestGauge(t *testing.T) {
 		}, {
 			description: "error when an unexpected label is sent",
 			fn: func(g kit.Gauge) {
-				g.With("invalid").Add(1)
+				g.With("invalid", "value1").Add(1)
 			},
 			opt:         ExpectLabels(),
 			expectPanic: true,
 		}, {
-			description: "send a counter with labels, and require 2",
+			description: "use a gauge with labels, and require 2",
 			fn: func(g kit.Gauge) {
-				g.With("label1", "label2").Add(1)
+				g.With("one", "value1", "two", "value2").Add(1)
 			},
 			opt: ExpectLabels("one", "two"),
 			expected: map[string]float64{
-				"label1.label2": 1.0,
+				"value1.value2": 1.0,
 			},
 		}, {
 			description: "error when a missing label is sent",
 			fn: func(g kit.Gauge) {
-				g.With("label1").Add(1)
+				g.With("one", "value1").Add(1)
 			},
 			opt:         ExpectLabels("one", "two"),
 			expectPanic: true,
@@ -118,6 +118,34 @@ func TestGauge(t *testing.T) {
 			description: "error when an extra label is sent",
 			fn: func(g kit.Gauge) {
 				g.With("label1", "label2", "label3").Add(1)
+			},
+			opt:         ExpectLabels("one", "two"),
+			expectPanic: true,
+		}, {
+			description: "use a gauge with the wrong label",
+			fn: func(g kit.Gauge) {
+				g.With("label1", "value1", "label2", "value2")
+			},
+			opt:         ExpectLabels("one", "two"),
+			expectPanic: true,
+		}, {
+			description: "use a gauge missing a value",
+			fn: func(g kit.Gauge) {
+				g.With("one")
+			},
+			opt:         ExpectLabels("one", "two"),
+			expectPanic: true,
+		}, {
+			description: "use a gauge with the label set to ''",
+			fn: func(g kit.Gauge) {
+				g.With("", "value")
+			},
+			opt:         ExpectLabels("one", "two"),
+			expectPanic: true,
+		}, {
+			description: "use a gauge with the value set to ''",
+			fn: func(g kit.Gauge) {
+				g.With("one", "")
 			},
 			opt:         ExpectLabels("one", "two"),
 			expectPanic: true,

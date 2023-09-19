@@ -4,8 +4,6 @@
 package mockitmetrics
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 
 	kit "github.com/go-kit/kit/metrics"
@@ -29,13 +27,13 @@ func NewCounter(opts ...Option) *Counter {
 
 // Counter is a mock counter.
 type Counter struct {
-	value       map[string]float64
-	panic       func(any)
-	delimiter   string
-	m           sync.Mutex
-	root        *Counter
-	labels      *[]string
-	labelValues []string
+	value          map[string]float64
+	panic          func(any)
+	delimiter      string
+	m              sync.Mutex
+	root           *Counter
+	expectedLabels *[]string
+	lvp            []tuple
 }
 
 var _ kit.Counter = (*Counter)(nil)
@@ -47,10 +45,26 @@ func (c *Counter) With(labelValues ...string) kit.Counter {
 		root = c.root
 	}
 
-	return &Counter{
-		root:        root,
-		labelValues: append(c.labelValues, labelValues...),
+	lvp, err := convert(labelValues)
+	if err != nil {
+		goto failure
 	}
+
+	lvp = append(c.lvp, lvp...)
+
+	err = validateLabels(root.expectedLabels, lvp, false)
+	if err != nil {
+		goto failure
+	}
+
+	return &Counter{
+		root: root,
+		lvp:  lvp,
+	}
+
+failure:
+	root.panic(err)
+	return nil
 }
 
 // Add adds the provided delta to the counter.
@@ -65,18 +79,12 @@ func (c *Counter) Add(delta float64) {
 		return
 	}
 
-	if root.labels != nil && len(c.labelValues) != len(*root.labels) &&
-		!(len(*root.labels) == 0 && len(c.labelValues) == 1 && c.labelValues[0] == "") {
-
-		s := fmt.Sprintf("incorrect number of label values. labels: '%s' (%d), values '%s' (%d)",
-			strings.Join(*root.labels, "', '"), len(*root.labels),
-			strings.Join(root.labelValues, "', '"), len(root.labelValues),
-		)
-		root.panic(s)
+	if err := validateLabels(root.expectedLabels, c.lvp, true); err != nil {
+		root.panic(err)
 		return
 	}
 
-	label := strings.Join(c.labelValues, root.delimiter)
+	label := joinValues(c.lvp, root.delimiter)
 
 	root.m.Lock()
 	defer root.m.Unlock()

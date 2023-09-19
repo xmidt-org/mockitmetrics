@@ -4,8 +4,6 @@
 package mockitmetrics
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 
 	kit "github.com/go-kit/kit/metrics"
@@ -29,13 +27,13 @@ func NewHistogram(opts ...Option) *Histogram {
 
 // Histogram is a mock histogram.
 type Histogram struct {
-	value       map[string][]float64
-	delimiter   string
-	panic       func(any)
-	m           sync.Mutex
-	root        *Histogram
-	labels      *[]string
-	labelValues []string
+	value          map[string][]float64
+	delimiter      string
+	panic          func(any)
+	m              sync.Mutex
+	root           *Histogram
+	expectedLabels *[]string
+	lvp            []tuple
 }
 
 var _ kit.Histogram = (*Histogram)(nil)
@@ -47,10 +45,26 @@ func (h *Histogram) With(labelValues ...string) kit.Histogram {
 		root = h.root
 	}
 
-	return &Histogram{
-		root:        root,
-		labelValues: append(h.labelValues, labelValues...),
+	lvp, err := convert(labelValues)
+	if err != nil {
+		goto failure
 	}
+
+	lvp = append(h.lvp, lvp...)
+
+	err = validateLabels(root.expectedLabels, lvp, false)
+	if err != nil {
+		goto failure
+	}
+
+	return &Histogram{
+		root: root,
+		lvp:  lvp,
+	}
+
+failure:
+	root.panic(err)
+	return nil
 }
 
 // Observe adds the provided value to the histogram.
@@ -60,18 +74,12 @@ func (h *Histogram) Observe(value float64) {
 		root = h
 	}
 
-	if root.labels != nil && len(h.labelValues) != len(*root.labels) &&
-		!(len(*root.labels) == 0 && len(h.labelValues) == 1 && h.labelValues[0] == "") {
-
-		s := fmt.Sprintf("incorrect number of label values. labels: '%s' (%d), values '%s' (%d)",
-			strings.Join(*root.labels, "', '"), len(*root.labels),
-			strings.Join(root.labelValues, "', '"), len(root.labelValues),
-		)
-		root.panic(s)
+	if err := validateLabels(root.expectedLabels, h.lvp, true); err != nil {
+		root.panic(err)
 		return
 	}
 
-	label := strings.Join(h.labelValues, root.delimiter)
+	label := joinValues(h.lvp, root.delimiter)
 
 	root.m.Lock()
 	defer root.m.Unlock()

@@ -4,8 +4,6 @@
 package mockitmetrics
 
 import (
-	"fmt"
-	"strings"
 	"sync"
 
 	kit "github.com/go-kit/kit/metrics"
@@ -29,13 +27,13 @@ func NewGauge(opts ...Option) *Gauge {
 
 // Gauge is a mock gauge.
 type Gauge struct {
-	value       map[string]float64
-	delimiter   string
-	panic       func(any)
-	m           sync.Mutex
-	root        *Gauge
-	labels      *[]string
-	labelValues []string
+	value          map[string]float64
+	delimiter      string
+	panic          func(any)
+	m              sync.Mutex
+	root           *Gauge
+	expectedLabels *[]string
+	lvp            []tuple
 }
 
 var _ kit.Gauge = (*Gauge)(nil)
@@ -47,10 +45,26 @@ func (g *Gauge) With(labelValues ...string) kit.Gauge {
 		root = g.root
 	}
 
-	return &Gauge{
-		root:        root,
-		labelValues: append(g.labelValues, labelValues...),
+	lvp, err := convert(labelValues)
+	if err != nil {
+		goto failure
 	}
+
+	lvp = append(g.lvp, lvp...)
+
+	err = validateLabels(root.expectedLabels, lvp, false)
+	if err != nil {
+		goto failure
+	}
+
+	return &Gauge{
+		root: root,
+		lvp:  lvp,
+	}
+
+failure:
+	root.panic(err)
+	return nil
 }
 
 func (g *Gauge) update(value float64, delta bool) {
@@ -59,18 +73,12 @@ func (g *Gauge) update(value float64, delta bool) {
 		root = g
 	}
 
-	if root.labels != nil && len(g.labelValues) != len(*root.labels) &&
-		!(len(*root.labels) == 0 && len(g.labelValues) == 1 && g.labelValues[0] == "") {
-
-		s := fmt.Sprintf("incorrect number of label values. labels: '%s' (%d), values '%s' (%d)",
-			strings.Join(*root.labels, "', '"), len(*root.labels),
-			strings.Join(root.labelValues, "', '"), len(root.labelValues),
-		)
-		root.panic(s)
+	if err := validateLabels(root.expectedLabels, g.lvp, true); err != nil {
+		root.panic(err)
 		return
 	}
 
-	label := strings.Join(g.labelValues, root.delimiter)
+	label := joinValues(g.lvp, root.delimiter)
 
 	root.m.Lock()
 	defer root.m.Unlock()

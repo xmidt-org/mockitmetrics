@@ -68,13 +68,13 @@ type expectLabels struct {
 }
 
 func (e expectLabels) counterApply(c *Counter) {
-	c.labels = &e.labels
+	c.expectedLabels = &e.labels
 }
 
 func (e expectLabels) gaugeApply(g *Gauge) {
-	g.labels = &e.labels
+	g.expectedLabels = &e.labels
 }
 
 func (e expectLabels) histogramApply(h *Histogram) {
-	h.labels = &e.labels
+	h.expectedLabels = &e.labels
 }
