@@ -20,7 +20,7 @@ var (
 
 func convert(s []string) ([]tuple, error) {
 	if len(s)%2 != 0 {
-		return nil, fmt.Errorf("%w - must be a multiple of 2, 'label1', 'value1', 'label2', 'value2', ...",
+		return nil, fmt.Errorf("%w - must be a multiple of 2, 'label1', 'value1', 'label2', 'value2', ...", //nolint:staticcheck
 			errInvalidLabelValues)
 	}
 
