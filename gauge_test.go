@@ -68,7 +68,7 @@ func TestGauge(t *testing.T) {
 			},
 		}, {
 			description: "output an empty gauge",
-			fn:          func(h kit.Gauge) {},
+			fn:          func(_ kit.Gauge) {},
 		}, {
 			description: "check that custom panic is honored",
 			fn: func(g kit.Gauge) {
@@ -156,7 +156,7 @@ func TestGauge(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 
-			opts := append(tc.opts, tc.opt)
+			opts := append(append([]Option{}, tc.opts...), tc.opt)
 			g := NewGauge(opts...)
 			if tc.expectPanic {
 				assert.Panics(func() { tc.fn(g) })

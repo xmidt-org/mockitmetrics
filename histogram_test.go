@@ -71,7 +71,7 @@ func TestHistogram(t *testing.T) {
 			},
 		}, {
 			description: "output an empty histogram",
-			fn:          func(h kit.Histogram) {},
+			fn:          func(_ kit.Histogram) {},
 		}, {
 			description: "use a counter with no labels, expecting no labels",
 			fn: func(h kit.Histogram) {
@@ -152,7 +152,7 @@ func TestHistogram(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 
-			opts := append(tc.opts, tc.opt)
+			opts := append(append([]Option{}, tc.opts...), tc.opt)
 			h := NewHistogram(opts...)
 			if tc.expectPanic {
 				assert.Panics(func() { tc.fn(h) })

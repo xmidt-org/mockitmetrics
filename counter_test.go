@@ -146,7 +146,7 @@ func TestCounter(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
 
-			opts := append(tc.opts, tc.opt)
+			opts := append(append([]Option{}, tc.opts...), tc.opt)
 			c := NewCounter(opts...)
 			if tc.expectPanic {
 				assert.Panics(func() { tc.fn(c) })
